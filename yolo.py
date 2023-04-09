@@ -5,6 +5,7 @@ import serial
 import numpy as np
 from speech2text import *
 from test_automation import *
+import keyboard
 
 # Open live stream
 cap = cv2.VideoCapture(1)
@@ -36,14 +37,11 @@ def sign_in():
         # If a match is found, display a welcome message and stop capturing video
         if True in matches:
             label = known_face_labels[matches.index(True)]
-            print(label + " detected")
-            break
+            return label
 
-    # Display the resulting image
-    cv2.imshow('Video', frame)
-    # Exit if 'q' key is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        return
+    if keyboard.is_pressed('q'):
+        return 'quit'
+    return None
 
 
 def distance_calculate():
@@ -68,10 +66,6 @@ net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 classes = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
            'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
 last_label = ''
-
-# Initialize variables for tracking objects
-tracked_objects = {}
-object_id = 0
 
 while True:
     # Read frame from live stream
@@ -104,6 +98,7 @@ while True:
 
     # Apply non-max suppression
     indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+    quit_flag = False
 
     # Draw bounding boxes and class labels
     font = cv2.FONT_HERSHEY_PLAIN
@@ -117,14 +112,17 @@ while True:
         confidence = confidences[i]
         if confidence > 0.9 and label != last_label:
             last_label = label
-            tracked_objects[label] = object_id
-            object_id += 1
             # distance = np.random.randint(1, 10) # Replace with actual distance calculation
             if label == 'person':
-                sign_in()
+                detected_person = sign_in()
+                if (detected_person != None):
+                    if (detected_person == 'quit'):
+                        quit_flag = True
+                        break
+                    label = detected_person
             distance = distance_calculate()  # Replace with actual distance calculation
             # distance = 78
-            input_str = f"A {label} was detected {distance} centimeters away."
+            input_str = f"{label} was detected {distance} centimeters away."
             print(input_str)
             speak(input_str, 150)
         color = (0, 255, 0)
@@ -134,9 +132,10 @@ while True:
 
     # Show frame
     cv2.imshow('Object detection', frame)
+    cv2.waitKey(5)
 
     # Break loop if 'q' is pressed
-    if cv2.waitKey(1) == ord('q'):
+    if keyboard.is_pressed('q') or quit_flag:
         break
 
 # Release resources
